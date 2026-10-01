@@ -39,6 +39,3 @@ Ensure you have the following installed:
 * `numpy`
 * `matplotlib`
 * `pathlib`
-# Quick preview of the content image
-with Image.open(content) as img:
-    display(img.resize((500, 500)))
