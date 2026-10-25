@@ -39,3 +39,20 @@ Ensure you have the following installed:
 * `numpy`
 * `matplotlib`
 * `pathlib`
+
+---
+
+## 🚀 Extension: Real-Time Arbitrary Style Transfer (AdaIN)
+While Gatys' optimization produces stunning micro-textures, it is computationally expensive (taking minutes per image via pixel-level optimization). To bridge the gap between artistic quality and speed, this project has been extended to implement **Adaptive Instance Normalization (AdaIN)** in PyTorch.
+
+### 🧠 Core Architecture & Mechanism
+- **Encoder-Decoder Pipeline**: Utilizes a custom VGG-19 encoder (frozen up to `relu4_1`) paired with a reflection-padded symmetric decoder trained to invert feature statistics back into pixel space.
+- **Feature-Space Alignment**: Instead of matching slow Gram matrices, AdaIN directly aligns the channel-wise mean ($\mu$) and standard deviation ($\sigma$) of the content features with the style features:
+  $$ \text{AdaIN}(x, y) = \sigma(y) \left( \frac{x - \mu(x)}{\sigma(x)} \right) + \mu(y) $$
+- **Efficiency**: Achieves real-time style transfer in a single feed-forward pass (~0.01 seconds) without network retraining.
+
+### 🎛️ Advanced Runtime Controls
+Without modifying or retraining network weights, the pipeline supports four flexible runtime features:
+1. **Style Interpolation ($\alpha$ & Multi-Style Blending)**: Smoothly blends between content/style reconstructions or combines multiple art styles (e.g., Human Face + Katsushika Hokusai’s The Great Wave off Kanagawa + Claude Monet's Water Lilies) via linear feature-space weighting:
+   $$ \text{Combined Feature} = \sum w_k \cdot \text{AdaIN}(f(c), f(s_k)) $$
+2. **Brushstroke Scale Control**: Dynamically scales the style input resolution (e.g., $128 \text{px}$ vs. $1280 \text{px}$) to shift VGG's receptive fields between chunky macro-strokes and fine micro-textures (verified via MSE structural analysis).
