@@ -95,18 +95,17 @@ Enables style transfer through a single feed-forward pass without retraining the
 
 ---
 
-### 🎛️ Advanced Runtime Controls
+
+## 🎛️ Advanced Runtime Controls
 
 The pipeline supports flexible runtime customization without modifying or retraining network weights.
 
-#### 1. Style Interpolation ($\alpha$) & Multi-Style Blending
+### 1. Style Interpolation ($\alpha$) & Multi-Style Blending
 
 Controls the stylization strength by interpolating between the content features and the stylized features:
 
 $$
-F_{\text{output}} =
-(1-\alpha)f(c)
-+\alpha F_{\text{stylized}}
+F_{\text{output}} = (1-\alpha)f(c) + \alpha F_{\text{stylized}}
 $$
 
 Where $\alpha \in [0,1]$ controls the interpolation strength:
@@ -121,14 +120,14 @@ $$
 F_{\text{combined}} =
 \sum_{k=1}^{K}
 w_k \cdot
-\operatorname{AdaIN}\bigl(f(c), f(s_k)\bigr)
+\text{AdaIN}\bigl(f(c), f(s_k)\bigr)
 $$
 
-#### 2. Brushstroke Scale Control
+### 2. Brushstroke Scale Control
 
 Dynamically adjusts the style image resolution (e.g., **128 px vs. 1280 px**) to influence the apparent scale of transferred textures and brushstrokes.
 
-- **Lower resolution**: Can encourage broader, coarser stylistic patterns.
-- **Higher resolution**: Can preserve finer textures and more detailed stylistic patterns.
+- **Lower resolution:** Can encourage broader, coarser stylistic patterns.
+- **Higher resolution:** Can preserve finer textures and more detailed stylistic patterns.
 
-The resulting structural differences can be evaluated using **Mean Squared Error (MSE)** analysis.
+The resulting structural differences are evaluated using **Mean Squared Error (MSE)** analysis.
