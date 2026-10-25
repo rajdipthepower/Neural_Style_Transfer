@@ -54,5 +54,5 @@ While Gatys' optimization produces stunning micro-textures, it is computationall
 ### 🎛️ Advanced Runtime Controls
 Without modifying or retraining network weights, the pipeline supports four flexible runtime features:
 1. **Style Interpolation ($\alpha$ & Multi-Style Blending)**: Smoothly blends between content/style reconstructions or combines multiple art styles (e.g., Human Face + Katsushika Hokusai’s The Great Wave off Kanagawa + Claude Monet's Water Lilies) via linear feature-space weighting:
-   $$ \text{Combined Feature} = \sum w_k \cdot \text{AdaIN}(f(c), f(s_k)) $$
+   $ \text{Combined Feature} = \sum w_k \cdot \text{AdaIN}(f(c), f(s_k)) $
 2. **Brushstroke Scale Control**: Dynamically scales the style input resolution (e.g., $128 \text{px}$ vs. $1280 \text{px}$) to shift VGG's receptive fields between chunky macro-strokes and fine micro-textures (verified via MSE structural analysis).
