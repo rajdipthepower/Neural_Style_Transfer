@@ -48,7 +48,9 @@ While Gatys' optimization produces stunning micro-textures, it is computationall
 ### 🧠 Core Architecture & Mechanism
 - **Encoder-Decoder Pipeline**: Utilizes a custom VGG-19 encoder (frozen up to `relu4_1`) paired with a reflection-padded symmetric decoder trained to invert feature statistics back into pixel space.
 - **Feature-Space Alignment**: Instead of matching slow Gram matrices, AdaIN directly aligns the channel-wise mean ($\mu$) and standard deviation ($\sigma$) of the content features with the style features:
-  $$\text{AdaIN}(x, y) = \sigma(y) \left( \frac{x - \mu(x)}{\sigma(x)} \right) + \mu(y)$$
+ $$
+\text{Combined Feature} = \sum w_k \cdot \text{AdaIN}(f(c), f(s_k))
+$$
 - **Efficiency**: Achieves real-time style transfer in a single feed-forward pass (~0.01 seconds) without network retraining.
 
 ### 🎛️ Advanced Runtime Controls
