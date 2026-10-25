@@ -46,15 +46,159 @@ Ensure you have the following installed:
 While Gatys' optimization produces stunning micro-textures, it is computationally expensive (taking minutes per image via pixel-level optimization). To bridge the gap between artistic quality and speed, this project has been extended to implement **Adaptive Instance Normalization (AdaIN)** in PyTorch.
 
 ### 🧠 Core Architecture & Mechanism
-- **Encoder-Decoder Pipeline**: Utilizes a custom VGG-19 encoder (frozen up to `relu4_1`) paired with a reflection-padded symmetric decoder trained to invert feature statistics back into pixel space.
-- **Feature-Space Alignment**: Instead of matching slow Gram matrices, AdaIN directly aligns the channel-wise mean ($\mu$) and standard deviation ($\sigma$) of the content features with the style features:
- $$
-\text{Combined Feature} = \sum w_k \cdot \text{AdaIN}(f(c), f(s_k))
-$$
-- **Efficiency**: Achieves real-time style transfer in a single feed-forward pass (~0.01 seconds) without network retraining.
+🧠 Encoder–Decoder Pipeline
 
-### 🎛️ Advanced Runtime Controls
-Without modifying or retraining network weights, the pipeline supports four flexible runtime features:
-1. **Style Interpolation ($\alpha$ & Multi-Style Blending)**: Smoothly blends between content/style reconstructions or combines multiple art styles (e.g., Human Face + Katsushika Hokusai’s The Great Wave off Kanagawa + Claude Monet's Water Lilies) via linear feature-space weighting:
-   $ \text{Combined Feature} = \sum w_k \cdot \text{AdaIN}(f(c), f(s_k)) $
-2. **Brushstroke Scale Control**: Dynamically scales the style input resolution (e.g., $128 \text{px}$ vs. $1280 \text{px}$) to shift VGG's receptive fields between chunky macro-strokes and fine micro-textures (verified via MSE structural analysis).
+Utilizes a custom VGG-19 encoder (frozen up to relu4_1) paired with a reflection-padded, symmetric decoder trained to reconstruct pixel-space images from normalized feature representations.
+
+🎨 Feature-Space Alignment
+
+Instead of matching computationally expensive Gram matrices, Adaptive Instance Normalization (AdaIN) aligns the channel-wise mean (
+𝜇
+) and standard deviation (
+𝜎
+) of content features with those of style features.
+
+For multi-style transfer, the combined feature representation is computed as:
+
+𝐹
+combined
+=
+∑
+𝑘
+=
+1
+𝐾
+𝑤
+𝑘
+⋅
+AdaIN
+⁡
+(
+𝑓
+(
+𝑐
+)
+,
+𝑓
+(
+𝑠
+𝑘
+)
+)
+
+where:
+
+𝐹
+combined
+ represents the blended feature representation.
+𝑤
+𝑘
+ denotes the weight assigned to the 
+𝑘
+-th style.
+𝑓
+(
+𝑐
+)
+ represents the content image features.
+𝑓
+(
+𝑠
+𝑘
+)
+ represents the features extracted from the 
+𝑘
+-th style image.
+𝐾
+ is the total number of style images.
+⚡ Real-Time Inference
+
+Achieves real-time style transfer through a single feed-forward pass (~0.01 seconds), without retraining the network for different styles.
+
+🎛️ Advanced Runtime Controls
+
+The pipeline supports flexible runtime customization without modifying or retraining network weights.
+
+1. Style Interpolation (
+𝛼
+) & Multi-Style Blending
+
+Controls the stylization strength by interpolating between content features and stylized features:
+
+𝐹
+output
+=
+(
+1
+−
+𝛼
+)
+𝑓
+(
+𝑐
+)
++
+𝛼
+𝐹
+stylized
+
+where 
+𝛼
+∈
+[
+0
+,
+1
+]
+ controls the interpolation strength:
+
+𝛼
+=
+0
+: Preserves the original content representation.
+𝛼
+=
+1
+: Applies the full stylized representation.
+0
+<
+𝛼
+<
+1
+: Produces an intermediate blend.
+
+Multiple artistic styles can also be combined using weighted feature-space blending, enabling compositions inspired by Katsushika Hokusai's The Great Wave off Kanagawa, Claude Monet's Water Lilies, and other style references.
+
+𝐹
+combined
+=
+∑
+𝑘
+=
+1
+𝐾
+𝑤
+𝑘
+⋅
+AdaIN
+⁡
+(
+𝑓
+(
+𝑐
+)
+,
+𝑓
+(
+𝑠
+𝑘
+)
+)
+2. Brushstroke Scale Control
+
+Dynamically adjusts the style image resolution (e.g., 128 px vs. 1280 px) to influence the apparent scale of transferred textures and brushstrokes.
+
+Lower resolution: Encourages broader, coarser stylistic patterns.
+Higher resolution: Can preserve finer textures and more detailed stylistic patterns.
+
+The resulting structural differences can be evaluated using Mean Squared Error (MSE) analysis.
