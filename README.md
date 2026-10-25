@@ -50,20 +50,21 @@ Ensure you have the following installed:
 
 While Gatys' optimization-based approach can produce detailed textures, it is computationally expensive because it iteratively optimizes image pixels. To bridge the gap between artistic quality and speed, this project has been extended to implement **Adaptive Instance Normalization (AdaIN)** in PyTorch.
 
-### 🧠 Core Architecture & Mechanism
 
-#### Encoder–Decoder Pipeline
+## 🧠 Core Architecture & Mechanism
+
+### Encoder–Decoder Pipeline
 
 Utilizes a custom VGG-19 encoder (frozen up to `relu4_1`) paired with a reflection-padded, symmetric decoder trained to reconstruct pixel-space images from normalized feature representations.
 
-#### 🎨 Feature-Space Alignment
+### 🎨 Feature-Space Alignment
 
-Instead of matching computationally expensive Gram matrices, **Adaptive Instance Normalization (AdaIN)** aligns the channel-wise mean ($\mu$) and standard deviation ($\sigma$) of content features with those of style features.
+Instead of matching computationally expensive Gram matrices, Adaptive Instance Normalization (AdaIN) aligns the channel-wise mean ($\mu$) and standard deviation ($\sigma$) of content features with those of style features.
 
 The AdaIN operation is defined as:
 
 $$
-\operatorname{AdaIN}(f(c), f(s)) =
+\text{AdaIN}(f(c), f(s)) =
 \sigma(f(s))
 \left(
 \frac{f(c)-\mu(f(c))}
@@ -78,7 +79,7 @@ $$
 F_{\text{combined}} =
 \sum_{k=1}^{K}
 w_k \cdot
-\operatorname{AdaIN}\bigl(f(c), f(s_k)\bigr)
+\text{AdaIN}\bigl(f(c), f(s_k)\bigr)
 $$
 
 Where:
@@ -89,9 +90,10 @@ Where:
 - $f(s_k)$ represents the features extracted from the $k$-th style image.
 - $K$ is the total number of style images.
 
-#### ⚡ Real-Time Inference
+### ⚡ Real-Time Inference
 
 Enables style transfer through a single feed-forward pass without retraining the network for every new style. Inference time can be approximately **0.01 seconds**, depending on hardware, input resolution, and implementation.
+
 
 ---
 
