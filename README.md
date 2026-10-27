@@ -1,135 +1,167 @@
+# DeepArt: Neural Style Transfer in PyTorch
 
-# DeepArt Experiment: Neural Style Transfer in PyTorch
+Two implementations of neural style transfer, plus a **live web app**:
 
-A repository documenting the implementation and hyperparameter optimization process for Neural Style Transfer using PyTorch. This project blends the content of a target image with the visual style of a reference image through iterative optimization.
+1. **Gatys et al. (optimization-based):** high quality, slow, with documented hyperparameter tuning.
+2. **AdaIN (feed-forward):** arbitrary style transfer in a single pass, with runtime controls.
+3. **DeepArt web app:** the AdaIN pipeline deployed as a Streamlit app.
 
----
-
-## 🔬 Experiment Workflow & Hyperparameter Tuning
-
-Training a neural style transfer model requires balancing content preservation and style replication. Below is the iterative tuning process used to achieve the final output:
-
-1. **Initial Attempt (Failed Initialization)**
-   - **Configuration**: 500 epochs, `content_weight = 1`, `style_weight = 5e-6`, initialized with the **original target image**.
-   - **Result**: The optimization failed to converge effectively because starting directly from the content image trapped the optimization in a local minimum, producing minimal stylistic change.
-
-2. **Second Attempt (Over-Stylization / Noise)**
-   - **Configuration**: 700 epochs, `content_weight = 1`, `style_weight = 5e-6`, initialized with **random noise**.
-   - **Result**: While the higher epoch count allowed more iterations, the optimization produced noisy, structurally incoherent outputs due to an insufficient balance between content preservation and style transfer.
-
-3. **Final Successful Render (Optimized Balance)**
-   - **Configuration**: Optimized epochs, `content_weight = 200`, `style_weight = 1e-8`.
-   - **Result**: Increasing the content weight and reducing the style weight encouraged the algorithm to preserve the underlying shapes and structures of the original photograph while transferring color and texture patterns from the style image.
+🔗 **Live demo:** `https://YOUR-APP-NAME.streamlit.app` *(the app sleeps after a period of inactivity; the first load may take a moment)*
 
 ---
 
-## 📈 Loss Curve & Training Observations
+## 📁 Repository Structure
 
-During the optimization process, tracking the loss data revealed key insights about convergence:
-
-- **Content Loss**: Starts very low when initialized with the target image, but can fluctuate and spike early under random initialization as the optimization attempts to reconstruct recognizable structures from noise.
-- **Style Loss**: Decreases rapidly within the first 100–200 epochs as textures and color distributions are transferred from the style reference.
-- **Curve Saturation**: Beyond a certain point, both losses begin to flatten asymptotically. Continuing training after saturation yields diminishing returns, potentially introducing minor pixel-level changes without significant structural improvement.
-
----
-
-## 🛠️ Prerequisites & Dependencies
-
-Ensure you have the following installed:
-
-- `torch`
-- `torchvision`
-- `Pillow`
-- `numpy`
-- `matplotlib`
-- `pathlib`
+| Folder | Contents |
+|---|---|
+| `Gaty's Optimization/` | Gatys optimization notebook, results, loss curve |
+| `adain_style_transfer/` | AdaIN experiment notebook and result images |
+| `Data/` | Sample content and style images |
+| `Deployment/` | The web app (Streamlit, plus the original Flask version) |
 
 ---
 
-## 🚀 Extension: Real-Time Arbitrary Style Transfer (AdaIN)
+## 🌐 DeepArt Web App
 
-While Gatys' optimization-based approach can produce detailed textures, it is computationally expensive because it iteratively optimizes image pixels. To bridge the gap between artistic quality and speed, this project has been extended to implement **Adaptive Instance Normalization (AdaIN)** in PyTorch.
+Upload a photo, pick a painting style, and get a stylized result in seconds on CPU.
 
+**Features**
+- 14 built-in public-domain styles grouped as **Portrait**, **Landscape** and **Abstract**, or upload your own style image.
+- **Style strength** slider (α) and **brushstroke size** (Fine / Medium / Broad).
+- **Mix two styles**, each with its own brushstroke size and a blend slider.
+- Compare with the original, and download the result.
+- Input validation: file type, size (10 MB), minimum and maximum dimensions, corrupt-image detection.
 
-## 🧠 Core Architecture & Mechanism
+**Design decisions**
+- Style statistics (channel mean and std) are **precomputed** for every built-in style at 128 / 512 / 1280 px, so a request never has to encode a large style image.
+- Models and statistics load once and are cached. One stylization runs at a time, to stay within memory limits.
+- Content is capped at 640 px on the long edge, and custom styles at 512 px, to keep memory around 600–750 MB.
+- A Flask API with a plain HTML/JS frontend was built first and is kept in the repo (`Deployment/backend/app.py`, `Deployment/frontend/`).
 
-### Encoder–Decoder Pipeline
+**Measured on a desktop CPU:** about 1.3–2 s per image warm, and 600–750 MB peak RAM including Streamlit.
 
-Utilizes a custom VGG-19 encoder (frozen up to `relu4_1`) paired with a reflection-padded, symmetric decoder trained to reconstruct pixel-space images from normalized feature representations.
+### Run locally
 
-### 🎨 Feature-Space Alignment
+```bash
+cd Deployment
+python -m venv .venv
+.venv\Scripts\activate          # Windows (use source .venv/bin/activate on Linux/macOS)
+pip install -r requirements.txt
+streamlit run streamlit_app.py
+```
 
-Instead of matching computationally expensive Gram matrices, Adaptive Instance Normalization (AdaIN) aligns the channel-wise mean ($\mu$) and standard deviation ($\sigma$) of content features with those of style features.
+Optional, for the Flask version: `pip install flask`, then `python backend/app.py`.
 
-The AdaIN operation is defined as:
+### Add or change styles
 
-$$
-\text{AdaIN}(f(c), f(s)) =
-\sigma(f(s))
-\left(
-\frac{f(c)-\mu(f(c))}
-{\sigma(f(c))}
-\right)
-+\mu(f(s))
-$$
+1. Put images in `Deployment/styles/<portrait|landscape|abstract>/` (lowercase names with underscores).
+2. From `Deployment/`, run `python build_styles.py` to regenerate thumbnails and `styles.json`.
+3. Run `python backend/precompute_styles.py` to regenerate `styles/style_stats.pt`.
 
-For multi-style transfer, the combined feature representation is computed as:
+### Project layout (`Deployment/`)
 
-$$
-F_{\text{combined}} =
-\sum_{k=1}^{K}
-w_k \cdot
-\text{AdaIN}\bigl(f(c), f(s_k)\bigr)
-$$
-
-Where:
-
-- $F_{\text{combined}}$ represents the blended feature representation.
-- $w_k$ denotes the weight assigned to the $k$-th style.
-- $f(c)$ represents the content image features.
-- $f(s_k)$ represents the features extracted from the $k$-th style image.
-- $K$ is the total number of style images.
-
-### ⚡ Real-Time Inference
-
-Enables style transfer through a single feed-forward pass without retraining the network for every new style. Inference time can be approximately **0.01 seconds**, depending on hardware, input resolution, and implementation.
-
+```
+backend/      inference.py (AdaIN pipeline), app.py (Flask API), precompute_styles.py
+frontend/     Flask HTML/CSS/JS UI and background image
+models/       vgg_normalised.pth, decoder.pth
+styles/       style images, thumbnails, styles.json, style_stats.pt
+streamlit_app.py   the deployed app
+build_styles.py    thumbnails and styles.json generator
+```
 
 ---
 
+## 🔬 Part 1: Gatys Optimization Experiments
 
-## 🎛️ Advanced Runtime Controls
+Neural style transfer must balance content preservation against style replication. Tuning process:
 
-The pipeline supports flexible runtime customization without modifying or retraining network weights.
+1. **Initial attempt (failed initialization)**
+   - 500 epochs, `content_weight = 1`, `style_weight = 5e-6`, initialized with the **target (content) image**.
+   - Optimization got trapped near the content image and produced minimal stylistic change.
 
-### 1. Style Interpolation ($\alpha$) & Multi-Style Blending
+2. **Second attempt (noise)**
+   - 700 epochs, same weights, initialized with **random noise**.
+   - Output was noisy and structurally incoherent: content and style were poorly balanced.
 
-Controls the stylization strength by interpolating between the content features and the stylized features:
+3. **Final render (optimized balance)**
+   - 700 epochs, `content_weight = 200`, `style_weight = 1e-8`.
+   - A higher content weight and lower style weight preserved the shapes of the photograph while transferring color and texture.
+
+### Loss observations
+- **Content loss:** starts very low when initialized with the content image, and can spike early under random initialization as structure is rebuilt from noise.
+- **Style loss:** drops quickly within the first 100–200 epochs.
+- **Saturation:** both losses flatten asymptotically, so further epochs give diminishing returns.
+
+---
+
+## ⚡ Part 2: Real-Time Arbitrary Style Transfer (AdaIN)
+
+Gatys' method optimizes image pixels iteratively, which is expensive. **Adaptive Instance Normalization (AdaIN)** replaces that with a single feed-forward pass.
+
+### Encoder–decoder pipeline
+A frozen VGG-19 encoder (up to `relu4_1`) and a symmetric, reflection-padded decoder that reconstructs the image from feature space. Pretrained weights come from [naoto0804/pytorch-AdaIN](https://github.com/naoto0804/pytorch-AdaIN). The encoder's first 1×1 convolution handles the RGB→BGR swap and mean subtraction internally, so inputs are plain 0–1 RGB.
+
+### Feature-space alignment
+AdaIN aligns the channel-wise mean ($\mu$) and standard deviation ($\sigma$) of content features to those of the style features:
 
 $$
-F_{\text{output}} = (1-\alpha)f(c) + \alpha F_{\text{stylized}}
+\text{AdaIN}(f(c), f(s)) = \sigma(f(s)) \left( \frac{f(c)-\mu(f(c))}{\sigma(f(c))} \right) + \mu(f(s))
 $$
 
-Where $\alpha \in [0,1]$ controls the interpolation strength:
+Since only $\mu$ and $\sigma$ of the style are needed, they can be **precomputed** per style and scale.
 
-- $\alpha = 0$: Preserves the original content representation.
-- $\alpha = 1$: Applies the full stylized representation.
-- $0 < \alpha < 1$: Produces an intermediate blend.
+### Runtime controls (no retraining)
 
-Multiple artistic styles can also be combined using weighted feature-space blending, enabling compositions inspired by Katsushika Hokusai's *The Great Wave off Kanagawa*, Claude Monet's *Water Lilies*, and other artistic references.
+**1. Style strength ($\alpha$)**
 
 $$
-F_{\text{combined}} =
-\sum_{k=1}^{K}
-w_k \cdot
-\text{AdaIN}\bigl(f(c), f(s_k)\bigr)
+F_{\text{output}} = (1-\alpha)\,f(c) + \alpha\,F_{\text{stylized}}, \quad \alpha \in [0,1]
 $$
 
-### 2. Brushstroke Scale Control
+$\alpha = 0$ keeps the original content, and $\alpha = 1$ applies the full style.
 
-Dynamically adjusts the style image resolution (e.g., **128 px vs. 1280 px**) to influence the apparent scale of transferred textures and brushstrokes.
+**2. Multi-style blending**
 
-- **Lower resolution:** Can encourage broader, coarser stylistic patterns.
-- **Higher resolution:** Can preserve finer textures and more detailed stylistic patterns.
+$$
+F_{\text{combined}} = \sum_{k=1}^{K} w_k \cdot \text{AdaIN}\bigl(f(c), f(s_k)\bigr), \quad \sum_k w_k = 1
+$$
 
-The resulting structural differences are evaluated using **Mean Squared Error (MSE)** analysis.
+The web app uses $K = 2$. Each style can use a different brushstroke scale.
+
+**3. Brushstroke scale**
+The style image is resized (for example 128 px vs 1280 px) before its statistics are computed:
+- **Small size (128):** finer, denser strokes.
+- **Large size (1280):** broader, softer strokes.
+
+Differences between scales were evaluated with Mean Squared Error (MSE).
+
+### Speed
+A single feed-forward pass: roughly 1.3–2 s on a desktop CPU in this implementation (measured), and much faster on a GPU, depending on resolution.
+
+---
+
+## ⚠️ Limitations and Tips
+
+AdaIN matches only global feature statistics (channel mean and standard deviation) and
+reconstructs the image from 1/8-resolution features, so very fine details can be lost.
+Small faces, lips, eyes, text, and busy scenes with many small objects may be distorted.
+
+Best results:
+- Landscapes with simple, high-contrast subjects.
+- Simple portraits with a plain or minimal background, with the face large in the frame.
+- If details get lost, lower style strength (about 0.5–0.7), try Fine brushstrokes, or crop closer to the subject.
+
+---
+
+## 🛠️ Requirements
+
+`torch`, `torchvision`, `streamlit`, `Pillow`, `numpy`, `psutil` (see `Deployment/requirements.txt`). The Gatys notebook additionally uses `matplotlib`.
+
+---
+
+## 📚 References and Credits
+
+- Gatys, Ecker, Bethge. *A Neural Algorithm of Artistic Style* (2015).
+- Huang, Belongie. *Arbitrary Style Transfer in Real-time with Adaptive Instance Normalization* (2017).
+- Pretrained AdaIN weights: [naoto0804/pytorch-AdaIN](https://github.com/naoto0804/pytorch-AdaIN).
+- Built-in style images are public-domain artworks, sourced from Wikimedia Commons.
