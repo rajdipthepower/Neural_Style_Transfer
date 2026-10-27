@@ -1,6 +1,7 @@
 """
 DeepArt - Streamlit Application
 A modern, compact neural style transfer web app powered by AdaIN and PyTorch.
+Supports both single-style transfer and two-style mixing.
 """
 
 import base64
@@ -30,7 +31,7 @@ BG_IMAGE_PATH = ROOT_DIR / "frontend" / "static" / "bg.jpg"
 
 sys.path.append(str(BACKEND_DIR))
 import inference
-from inference import device, get_style_stats, stylize
+from inference import device, get_style_stats, stylize, stylize_blend
 
 SCALE_MAP = {
     "Fine": 128,
@@ -100,7 +101,7 @@ def inject_custom_css():
 
     {bg_style}
 
-    /* 1. SOLID FROSTED GLASS MAIN CARD (Universal - Works on ALL Streamlit versions) */
+    /* 1. SOLID FROSTED GLASS MAIN CARD */
     .block-container {{
         background: rgba(15, 23, 42, 0.88) !important;
         backdrop-filter: blur(16px) !important;
@@ -114,7 +115,7 @@ def inject_custom_css():
         max-width: 800px !important;
     }}
 
-    /* 2. UNIVERSAL WHITE TEXT (Nothing can be invisible) */
+    /* 2. UNIVERSAL WHITE TEXT (For headings and general text on the dark card) */
     .stApp, .stApp p, .stApp span, .stApp label, .stApp div,
     [data-testid="stMarkdownContainer"] p,
     div[data-testid="stWidgetLabel"] p {{
@@ -142,7 +143,7 @@ def inject_custom_css():
         margin-bottom: 2rem;
     }}
 
-    /* 3. SECTION HEADINGS (Bright Gold for maximum contrast) */
+    /* 3. SECTION HEADINGS (Bright Gold) */
     h3, .stApp h3 {{
         color: #fbbf24 !important;
         font-size: 1.4rem !important;
@@ -154,11 +155,20 @@ def inject_custom_css():
         text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9) !important;
     }}
 
-    /* 4. FIX FILE UPLOADER (Black Text on White Upload Box) */
-    [data-testid="stFileUploader"],
-    [data-testid="stFileUploader"] * {{
+    /* 4. SOLID BLACK TEXT ON ALL FILE UPLOADERS (Fixes "200MB per file" and button) */
+    [data-testid="stFileUploader"] section,
+    [data-testid="stFileUploader"] section *,
+    [data-testid="stFileUploaderDropzone"],
+    [data-testid="stFileUploaderDropzone"] *,
+    [data-testid="stFileUploaderDropzoneInstructions"],
+    [data-testid="stFileUploaderDropzoneInstructions"] *,
+    [data-testid="stFileUploader"] div,
+    [data-testid="stFileUploader"] span,
+    [data-testid="stFileUploader"] small,
+    [data-testid="stFileUploader"] p {{
         color: #0f172a !important;
         text-shadow: none !important;
+        font-weight: 700 !important;
     }}
     [data-testid="stFileUploader"] button {{
         background-color: #f1f5f9 !important;
@@ -166,17 +176,7 @@ def inject_custom_css():
     }}
     [data-testid="stFileUploader"] button * {{
         color: #0f172a !important;
-        font-weight: 700 !important;
-    }}
-    [data-testid="stFileUploader"] small {{
-        color: #334155 !important;
-        font-weight: 600 !important;
-    }}
-    .stApp [data-testid="stFileUploaderDropzoneInstructions"],
-    .stApp [data-testid="stFileUploaderDropzoneInstructions"] * {{
-        color: #334155 !important;
-        text-shadow: none !important;
-        font-weight: 600 !important;
+        font-weight: 800 !important;
     }}
 
     /* 5. DISABLE FULLSCREEN EXPAND ON IMAGES */
@@ -187,13 +187,13 @@ def inject_custom_css():
         display: none !important;
     }}
 
-    /* 4. SLIDER & CONTROLS */
+    /* 6. SLIDER & CONTROLS */
     div[data-testid="stSlider"] * {{
         color: #ffffff !important;
         font-weight: 700 !important;
     }}
 
-    /* 5. RADIO BUTTONS (Fine / Medium / Broad) */
+    /* 7. RADIO BUTTONS */
     div[data-testid="stRadio"] label,
     div[data-testid="stRadio"] div[role="radiogroup"] label p {{
         color: #ffffff !important;
@@ -201,7 +201,7 @@ def inject_custom_css():
         font-weight: 700 !important;
     }}
 
-    /* 6. TABS */
+    /* 8. TABS */
     div[data-testid="stTabs"] button {{
         color: #cbd5e1 !important;
         font-size: 1rem !important;
@@ -212,7 +212,7 @@ def inject_custom_css():
         border-bottom-color: #818cf8 !important;
     }}
 
-    /* 7. PRESET BUTTONS UNDER THUMBNAILS */
+    /* 9. PRESET BUTTONS UNDER THUMBNAILS */
     [data-testid="stColumn"] .stButton > button {{
         width: 100% !important;
         background-color: #1e293b !important;
@@ -227,7 +227,7 @@ def inject_custom_css():
         color: #818cf8 !important;
     }}
 
-    /* 8. ACTIVE SELECTION BADGE */
+    /* 10. ACTIVE SELECTION BADGE */
     .selected-badge {{
         display: inline-block;
         background-color: #312e81;
@@ -241,11 +241,15 @@ def inject_custom_css():
         box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
     }}
 
-    /* 9. TOGGLE BUTTON */
+    /* 11. TOGGLE & SELECTBOXES */
     div[data-testid="stToggle"] * {{
         color: #ffffff !important;
         font-weight: 700 !important;
         font-size: 1rem !important;
+    }}
+    div[data-testid="stSelectbox"] * {{
+        color: #0f172a !important;
+        font-weight: 600 !important;
     }}
 
     /* FOOTER */
@@ -298,13 +302,40 @@ def validate_uploaded_image(uploaded_file):
     return stream
 
 # -----------------------------------------------------------------------------
+# Helper: Resolve Stats for a Style Selection
+# -----------------------------------------------------------------------------
+
+def resolve_slot_stats(style_choice, custom_stream, scale_size, all_styles, precomputed_dict):
+    """Returns (mean, std) for a chosen preset or custom uploaded style."""
+    if style_choice == "Upload your own":
+        custom_stream.seek(0)
+        c_size = min(scale_size, 512)
+        return get_style_stats(custom_stream, size=c_size)
+    else:
+        selected_item = next(
+            (s for s in all_styles if f"{s['category'].title()} - {s['name']}" == style_choice),
+            None
+        )
+        if not selected_item:
+            return None
+        style_id = selected_item["id"]
+        cache_key = f"{style_id}|{scale_size}"
+        if cache_key in precomputed_dict:
+            mean, std = precomputed_dict[cache_key]
+            return (mean.to(device), std.to(device))
+        else:
+            cat = selected_item.get("category", "")
+            candidate_path = ROOT_DIR / "styles" / cat / f"{style_id}.jpg"
+            return get_style_stats(str(candidate_path), size=scale_size)
+
+# -----------------------------------------------------------------------------
 # Main Application
 # -----------------------------------------------------------------------------
 
 def main():
     inject_custom_css()
 
-    # Session State
+    # Session State Setup
     if "selected_style_id" not in st.session_state:
         st.session_state["selected_style_id"] = None
     if "selected_style_name" not in st.session_state:
@@ -341,7 +372,6 @@ def main():
                 content_img = ImageOps.exif_transpose(content_img).convert("RGB")
                 st.session_state["content_pil"] = content_img
 
-                # Compact, centered preview
                 _, center_col, _ = st.columns([1, 2, 1])
                 with center_col:
                     st.image(content_img, caption="Content Preview", width=300)
@@ -349,79 +379,140 @@ def main():
                 valid_content_stream.seek(0)
 
     # -------------------------------------------------------------------------
-    # 2. STYLE SELECTION SECTION
+    # 2. STYLE SELECTION SECTION (Single Mode vs. Blend Mode)
     # -------------------------------------------------------------------------
+    all_styles = load_styles_metadata()
+
     with st.container(border=True):
         st.markdown("### 2. Choose Painting Style")
 
-        tab_portrait, tab_landscape, tab_abstract, tab_custom = st.tabs(
-            ["Portrait", "Landscape", "Abstract", "Upload your own"]
-        )
+        mix_styles = st.toggle("Mix two styles", value=False)
 
-        all_styles = load_styles_metadata()
+        # --- BRANCH A: MIX TWO STYLES ---
+        if mix_styles:
+            style_options = [f"{s['category'].title()} - {s['name']}" for s in all_styles] + ["Upload your own"]
+            col_a, col_b = st.columns(2)
 
-        def render_preset_tab(category_name):
-            styles_subset = [s for s in all_styles if s.get("category") == category_name]
-            cols = st.columns(4)
-            for idx, s in enumerate(styles_subset):
-                with cols[idx % 4]:
-                    thumb_path = ROOT_DIR / "styles" / "thumbs" / f"{s['id']}.jpg"
-                    is_selected = (st.session_state["selected_style_id"] == s['id'])
+            with col_a:
+                st.markdown("#### Style A")
+                choice_a = st.selectbox("Select Style A", options=style_options, key="select_a")
+                custom_stream_a = None
 
-                    if thumb_path.is_file():
-                        st.image(str(thumb_path), use_container_width=True)
+                if choice_a == "Upload your own":
+                    file_a = st.file_uploader("Upload painting for Style A", type=["jpg", "jpeg", "jfif", "png", "webp"], key="upload_a")
+                    if file_a:
+                        custom_stream_a = validate_uploaded_image(file_a)
+                        if custom_stream_a:
+                            img_a = Image.open(custom_stream_a)
+                            st.image(img_a, caption="Style A Preview", width=140)
+                            custom_stream_a.seek(0)
+                else:
+                    item_a = next((s for s in all_styles if f"{s['category'].title()} - {s['name']}" == choice_a), None)
+                    if item_a:
+                        thumb_path_a = ROOT_DIR / "styles" / "thumbs" / f"{item_a['id']}.jpg"
+                        if thumb_path_a.is_file():
+                            st.image(str(thumb_path_a), width=140)
 
-                    button_label = f"✓ {s['name']}" if is_selected else s['name']
-                    if st.button(
-                        button_label,
-                        key=f"btn_{s['id']}",
-                        type="primary" if is_selected else "secondary",
-                        use_container_width=True
-                    ):
-                        st.session_state["selected_style_id"] = s["id"]
-                        st.session_state["selected_style_name"] = s["name"]
-                        st.session_state["custom_style_stream"] = None
-                        st.rerun()
+                scale_label_a = st.radio("Brushstroke size A", ["Fine", "Medium", "Broad"], index=1, horizontal=True, key="scale_a")
+                target_scale_a = SCALE_MAP[scale_label_a]
 
-        with tab_portrait:
-            render_preset_tab("portrait")
+            with col_b:
+                st.markdown("#### Style B")
+                default_b_idx = 1 if len(style_options) > 1 else 0
+                choice_b = st.selectbox("Select Style B", options=style_options, index=default_b_idx, key="select_b")
+                custom_stream_b = None
 
-        with tab_landscape:
-            render_preset_tab("landscape")
+                if choice_b == "Upload your own":
+                    file_b = st.file_uploader("Upload painting for Style B", type=["jpg", "jpeg", "jfif", "png", "webp"], key="upload_b")
+                    if file_b:
+                        custom_stream_b = validate_uploaded_image(file_b)
+                        if custom_stream_b:
+                            img_b = Image.open(custom_stream_b)
+                            st.image(img_b, caption="Style B Preview", width=140)
+                            custom_stream_b.seek(0)
+                else:
+                    item_b = next((s for s in all_styles if f"{s['category'].title()} - {s['name']}" == choice_b), None)
+                    if item_b:
+                        thumb_path_b = ROOT_DIR / "styles" / "thumbs" / f"{item_b['id']}.jpg"
+                        if thumb_path_b.is_file():
+                            st.image(str(thumb_path_b), width=140)
 
-        with tab_abstract:
-            render_preset_tab("abstract")
+                scale_label_b = st.radio("Brushstroke size B", ["Fine", "Medium", "Broad"], index=1, horizontal=True, key="scale_b")
+                target_scale_b = SCALE_MAP[scale_label_b]
 
-        with tab_custom:
-            custom_style_file = st.file_uploader(
-                "Upload custom style painting:",
-                type=["jpg", "jpeg", "jfif", "png", "webp"],
-                key="custom_style_uploader"
+            st.markdown("<br>", unsafe_allow_html=True)
+            blend_ratio = st.slider("Blend (Style A <-> Style B)", min_value=0.0, max_value=1.0, value=0.5, step=0.05)
+            weight_a = 1.0 - blend_ratio
+            weight_b = blend_ratio
+            st.caption(f"**Blend balance:** Style A = {int(weight_a * 100)}% | Style B = {int(weight_b * 100)}%")
+
+            if choice_a != "Upload your own" and choice_a == choice_b and target_scale_a == target_scale_b:
+                st.warning("Both Style A and Style B are the same painting at the same brushstroke size. Pick different styles to see a blend effect!")
+
+        # --- BRANCH B: SINGLE STYLE ---
+        else:
+            tab_portrait, tab_landscape, tab_abstract, tab_custom = st.tabs(
+                ["Portrait", "Landscape", "Abstract", "Upload your own"]
             )
-            if custom_style_file is not None:
-                valid_custom_stream = validate_uploaded_image(custom_style_file)
-                if valid_custom_stream:
-                    st.session_state["custom_style_stream"] = valid_custom_stream
-                    st.session_state["selected_style_id"] = None
-                    st.session_state["selected_style_name"] = None
 
-                    style_preview_img = Image.open(valid_custom_stream)
-                    _, custom_col, _ = st.columns([1, 2, 1])
-                    with custom_col:
-                        st.image(style_preview_img, caption="Custom Style Preview", width=260)
-                    valid_custom_stream.seek(0)
+            def render_preset_tab(category_name):
+                styles_subset = [s for s in all_styles if s.get("category") == category_name]
+                cols = st.columns(4)
+                for idx, s in enumerate(styles_subset):
+                    with cols[idx % 4]:
+                        thumb_path = ROOT_DIR / "styles" / "thumbs" / f"{s['id']}.jpg"
+                        is_selected = (st.session_state["selected_style_id"] == s['id'])
 
-        # Active Selection Status
-        if st.session_state["selected_style_name"]:
-            st.markdown(
-                f'<div class="selected-badge">✓ Selected: {st.session_state["selected_style_name"]}</div>',
-                unsafe_allow_html=True
-            )
-        elif st.session_state["custom_style_stream"]:
-            st.markdown(
-                '<div class="selected-badge">✓ Custom Style Uploaded</div>',
-                unsafe_allow_html=True
-            )
+                        if thumb_path.is_file():
+                            st.image(str(thumb_path), use_container_width=True)
+
+                        button_label = f"✓ {s['name']}" if is_selected else s['name']
+                        if st.button(
+                            button_label,
+                            key=f"btn_{s['id']}",
+                            type="primary" if is_selected else "secondary",
+                            use_container_width=True
+                        ):
+                            st.session_state["selected_style_id"] = s["id"]
+                            st.session_state["selected_style_name"] = s["name"]
+                            st.session_state["custom_style_stream"] = None
+                            st.rerun()
+
+            with tab_portrait:
+                render_preset_tab("portrait")
+            with tab_landscape:
+                render_preset_tab("landscape")
+            with tab_abstract:
+                render_preset_tab("abstract")
+            with tab_custom:
+                custom_style_file = st.file_uploader(
+                    "Upload custom style painting:",
+                    type=["jpg", "jpeg", "jfif", "png", "webp"],
+                    key="custom_style_uploader"
+                )
+                if custom_style_file is not None:
+                    valid_custom_stream = validate_uploaded_image(custom_style_file)
+                    if valid_custom_stream:
+                        st.session_state["custom_style_stream"] = valid_custom_stream
+                        st.session_state["selected_style_id"] = None
+                        st.session_state["selected_style_name"] = None
+
+                        style_preview_img = Image.open(valid_custom_stream)
+                        _, custom_col, _ = st.columns([1, 2, 1])
+                        with custom_col:
+                            st.image(style_preview_img, caption="Custom Style Preview", width=260)
+                        valid_custom_stream.seek(0)
+
+            if st.session_state["selected_style_name"]:
+                st.markdown(
+                    f'<div class="selected-badge">✓ Selected: {st.session_state["selected_style_name"]}</div>',
+                    unsafe_allow_html=True
+                )
+            elif st.session_state["custom_style_stream"]:
+                st.markdown(
+                    '<div class="selected-badge">✓ Custom Style Uploaded</div>',
+                    unsafe_allow_html=True
+                )
 
     # -------------------------------------------------------------------------
     # 3. CONTROLS SECTION
@@ -430,14 +521,22 @@ def main():
         st.markdown("### 3. Adjust Controls")
 
         alpha_val = st.slider("Style strength", min_value=0.0, max_value=1.0, value=0.8, step=0.05)
-        scale_label = st.radio("Brushstroke size", ["Fine", "Medium", "Broad"], index=1, horizontal=True)
-        target_scale_size = SCALE_MAP[scale_label]
+
+        if not mix_styles:
+            scale_label = st.radio("Brushstroke size", ["Fine", "Medium", "Broad"], index=1, horizontal=True)
+            target_scale_size = SCALE_MAP[scale_label]
 
         has_content = valid_content_stream is not None
-        has_style = (st.session_state["selected_style_id"] is not None) or (st.session_state["custom_style_stream"] is not None)
-        btn_disabled = not (has_content and has_style)
 
-        stylize_clicked = st.button("Stylize Photo", type="primary", disabled=btn_disabled, use_container_width=True)
+        if mix_styles:
+            has_style_a = (choice_a != "Upload your own") or (custom_stream_a is not None)
+            has_style_b = (choice_b != "Upload your own") or (custom_stream_b is not None)
+            ready_to_stylize = has_content and has_style_a and has_style_b
+        else:
+            has_single_style = (st.session_state["selected_style_id"] is not None) or (st.session_state["custom_style_stream"] is not None)
+            ready_to_stylize = has_content and has_single_style
+
+        stylize_clicked = st.button("Stylize Photo", type="primary", disabled=not ready_to_stylize, use_container_width=True)
 
     # -------------------------------------------------------------------------
     # 4. INFERENCE EXECUTION WITH ANIMATED STATUS
@@ -450,39 +549,55 @@ def main():
             return
 
         try:
-            # Animated Processing Status
-            with st.status("🎨 Transforming your photo...", expanded=True) as status:
-                st.write("1/3 Loading and preprocessing image...")
-                time.sleep(0.1)
-
+            status_title = "🎨 Blending two styles onto your photo..." if mix_styles else "🎨 Transforming your photo..."
+            with st.status(status_title, expanded=True) as status:
+                st.write("1/3 Loading and preprocessing content...")
                 precomputed_dict = load_precomputed_stats()
 
-                # Preset Style
-                if st.session_state["selected_style_id"]:
-                    style_id = st.session_state["selected_style_id"]
-                    cache_key = f"{style_id}|{target_scale_size}"
+                # --- BRANCH 1: MIX TWO STYLES ---
+                if mix_styles:
+                    st.write("2/3 Extracting style representations for Style A & Style B...")
+                    stats_a = resolve_slot_stats(choice_a, custom_stream_a, target_scale_a, all_styles, precomputed_dict)
+                    stats_b = resolve_slot_stats(choice_b, custom_stream_b, target_scale_b, all_styles, precomputed_dict)
 
-                    if cache_key in precomputed_dict:
-                        mean, std = precomputed_dict[cache_key]
-                        current_stats = (mean.to(device), std.to(device))
-                    else:
-                        style_item = next((item for item in all_styles if item["id"] == style_id), None)
-                        cat = style_item.get("category", "") if style_item else ""
-                        candidate_path = ROOT_DIR / "styles" / cat / f"{style_id}.jpg"
-                        current_stats = get_style_stats(str(candidate_path), size=target_scale_size)
+                    if not stats_a or not stats_b:
+                        st.error("Failed to load statistics for one of the selected styles.")
+                        return
 
-                # Custom Style
+                    st.write(f"3/3 Blending features (Style A: {int(weight_a * 100)}% + Style B: {int(weight_b * 100)}%)...")
+                    valid_content_stream.seek(0)
+                    out_img = stylize_blend(
+                        valid_content_stream,
+                        [stats_a, stats_b],
+                        [weight_a, weight_b],
+                        alpha=alpha_val
+                    )
+
+                # --- BRANCH 2: SINGLE STYLE ---
                 else:
-                    style_stream = st.session_state["custom_style_stream"]
-                    style_stream.seek(0)
-                    custom_size = min(target_scale_size, 512)
-                    current_stats = get_style_stats(style_stream, size=custom_size)
+                    st.write("2/3 Extracting neural style representation...")
+                    if st.session_state["selected_style_id"]:
+                        style_id = st.session_state["selected_style_id"]
+                        cache_key = f"{style_id}|{target_scale_size}"
+                        if cache_key in precomputed_dict:
+                            mean, std = precomputed_dict[cache_key]
+                            current_stats = (mean.to(device), std.to(device))
+                        else:
+                            style_item = next((item for item in all_styles if item["id"] == style_id), None)
+                            cat = style_item.get("category", "") if style_item else ""
+                            candidate_path = ROOT_DIR / "styles" / cat / f"{style_id}.jpg"
+                            current_stats = get_style_stats(str(candidate_path), size=target_scale_size)
+                    else:
+                        style_stream = st.session_state["custom_style_stream"]
+                        style_stream.seek(0)
+                        custom_size = min(target_scale_size, 512)
+                        current_stats = get_style_stats(style_stream, size=custom_size)
 
-                st.write("2/3 Applying AdaIN neural brushstrokes...")
-                valid_content_stream.seek(0)
-                out_img = stylize(valid_content_stream, current_stats, alpha=alpha_val)
+                    st.write("3/3 Applying AdaIN neural brushstrokes...")
+                    valid_content_stream.seek(0)
+                    out_img = stylize(valid_content_stream, current_stats, alpha=alpha_val)
 
-                st.write("3/3 Rendering final high-resolution painting...")
+                # Store output image & bytes in session state
                 st.session_state["result_image"] = out_img
                 buf = io.BytesIO()
                 out_img.save(buf, format="JPEG", quality=90)
