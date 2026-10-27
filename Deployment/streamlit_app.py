@@ -154,6 +154,39 @@ def inject_custom_css():
         text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9) !important;
     }}
 
+    /* 4. FIX FILE UPLOADER (Black Text on White Upload Box) */
+    [data-testid="stFileUploader"],
+    [data-testid="stFileUploader"] * {{
+        color: #0f172a !important;
+        text-shadow: none !important;
+    }}
+    [data-testid="stFileUploader"] button {{
+        background-color: #f1f5f9 !important;
+        border: 1px solid #94a3b8 !important;
+    }}
+    [data-testid="stFileUploader"] button * {{
+        color: #0f172a !important;
+        font-weight: 700 !important;
+    }}
+    [data-testid="stFileUploader"] small {{
+        color: #334155 !important;
+        font-weight: 600 !important;
+    }}
+    .stApp [data-testid="stFileUploaderDropzoneInstructions"],
+    .stApp [data-testid="stFileUploaderDropzoneInstructions"] * {{
+        color: #334155 !important;
+        text-shadow: none !important;
+        font-weight: 600 !important;
+    }}
+
+    /* 5. DISABLE FULLSCREEN EXPAND ON IMAGES */
+    button[title="View fullscreen"],
+    [data-testid="StyledFullScreenButton"],
+    [data-testid="stFullScreenFrame"] button[aria-label="Fullscreen"],
+    [data-testid="stFullScreenFrame"] [data-testid="stBaseButton-elementToolbar"] {{
+        display: none !important;
+    }}
+
     /* 4. SLIDER & CONTROLS */
     div[data-testid="stSlider"] * {{
         color: #ffffff !important;
