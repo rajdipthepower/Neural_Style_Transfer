@@ -30,6 +30,12 @@
     "thumb": "/styles/thumbs/kandinsky_vii.jpg"
   },
   {
+    "id": "mondrian",
+    "name": "Mondrian",
+    "category": "abstract",
+    "thumb": "/styles/thumbs/mondrian.jpg"
+  },
+  {
     "id": "cezanne",
     "name": "Cezanne",
     "category": "landscape",
