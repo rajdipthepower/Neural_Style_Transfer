@@ -632,7 +632,7 @@ def main():
             )
 
     # Footer
-    st.markdown('<div class="app-footer">Made with Love by Rajdip ❤️❤️</div>', unsafe_allow_html=True)
+    st.markdown('<div class="app-footer">Made by Rajdip ❤️❤️</div>', unsafe_allow_html=True)
 
 
 if __name__ == "__main__":
