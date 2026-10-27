@@ -6,7 +6,7 @@ Two implementations of neural style transfer, plus a **live web app**:
 2. **AdaIN (feed-forward):** arbitrary style transfer in a single pass, with runtime controls.
 3. **DeepArt web app:** the AdaIN pipeline deployed as a Streamlit app.
 
-🔗 **Live demo:** `[Live App](https://neuralstyletransfer-by-raj.streamlit.app/)` *(the app sleeps after a period of inactivity; the first load may take a moment)*
+🔗 **Live demo:** [Live App](https://neuralstyletransfer-by-raj.streamlit.app/) *(the app sleeps after a period of inactivity; the first load may take a moment)*
 
 ---
 
