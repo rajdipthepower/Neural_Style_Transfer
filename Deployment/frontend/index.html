@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DeepArt - Neural Style Transfer</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+
+  <!-- Dismissible Error Notification Banner -->
+  <div id="error-banner" class="error-banner hidden" role="alert">
+    <span id="error-message"></span>
+    <button id="error-close-btn" class="error-close-btn" aria-label="Close error">&times;</button>
+  </div>
+
+  <div class="app-container">
+
+    <!-- Header Section -->
+    <header class="header">
+      <h1 class="logo">Deep<span>Art</span></h1>
+      <p class="tagline">Turn your photos into masterwork paintings in seconds with AdaIN.</p>
+    </header>
+
+    <main class="main-grid">
+
+      <!-- Step 1: Content Upload -->
+      <section class="card content-section">
+        <h2 class="section-title">1. Choose Content Photo</h2>
+
+        <div id="content-dropzone" class="dropzone">
+          <input type="file" id="content-input" accept="image/jpeg,image/png,image/webp" hidden>
+          <div id="content-placeholder" class="dropzone-placeholder">
+            <svg class="upload-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z">
+              </path>
+            </svg>
+            <p><strong>Click to browse</strong> or drag & drop photo</p>
+            <span class="hint">Supports JPEG, PNG, WEBP (Up to 10 MB)</span>
+          </div>
+
+          <div id="content-preview-container" class="preview-container hidden">
+            <img id="content-preview" class="preview-image" alt="Content preview">
+            <button id="remove-content-btn" class="remove-btn" type="button">&times; Remove</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Step 2: Style Selection -->
+      <section class="card style-section">
+        <h2 class="section-title">2. Choose Painting Style</h2>
+
+        <!-- Style Category Tabs -->
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="portrait">Portrait</button>
+          <button class="tab-btn" data-tab="landscape">Landscape</button>
+          <button class="tab-btn" data-tab="abstract">Abstract</button>
+          <button class="tab-btn" data-tab="custom">Upload Your Own</button>
+        </div>
+
+        <!-- Presets Grid Container -->
+        <div id="preset-grid" class="preset-grid"></div>
+
+        <!-- Custom Upload View (hidden by default) -->
+        <div id="custom-style-container" class="custom-style-container hidden">
+          <div id="style-dropzone" class="dropzone">
+            <input type="file" id="style-input" accept="image/jpeg,image/png,image/webp" hidden>
+            <div id="style-placeholder" class="dropzone-placeholder">
+              <svg class="upload-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+              </svg>
+              <p><strong>Click to upload</strong> custom style painting</p>
+              <span class="hint">JPEG, PNG, WEBP up to 10 MB</span>
+            </div>
+            <div id="style-preview-container" class="preview-container hidden">
+              <img id="style-preview" class="preview-image" alt="Custom style preview">
+              <button id="remove-style-btn" class="remove-btn" type="button">&times; Remove</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Step 3: Controls & Execution -->
+      <section class="card controls-section">
+        <h2 class="section-title">3. Adjust & Stylize</h2>
+
+        <div class="controls-grid">
+          <!-- Slider: Style Strength -->
+          <div class="control-group">
+            <div class="control-header">
+              <label for="alpha-slider">Style Strength</label>
+              <span id="alpha-val" class="value-badge">0.80</span>
+            </div>
+            <input type="range" id="alpha-slider" min="0" max="1" step="0.05" value="0.8">
+          </div>
+
+          <!-- Buttons: Brushstroke Scale -->
+          <div class="control-group">
+            <label>Brushstroke Size</label>
+            <div class="button-group" role="group">
+              <button type="button" class="scale-btn" data-scale="fine">Fine</button>
+              <button type="button" class="scale-btn active" data-scale="medium">Medium</button>
+              <button type="button" class="scale-btn" data-scale="broad">Broad</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="action-row">
+          <button id="stylize-btn" class="primary-btn" disabled>Stylize Photo</button>
+          <span class="note-text">Takes a few seconds on CPU</span>
+        </div>
+      </section>
+
+      <!-- Step 4: Result Output -->
+      <section class="card result-section">
+        <h2 class="section-title">Result</h2>
+
+        <div id="result-stage" class="result-stage">
+          <!-- Default Empty State -->
+          <div id="result-empty" class="result-empty">
+            <p>Your stylized artwork will appear here.</p>
+          </div>
+
+          <!-- Loading Spinner -->
+          <div id="result-spinner" class="spinner-container hidden">
+            <div class="spinner"></div>
+            <p>Painting your photo... please wait</p>
+          </div>
+
+          <!-- Output Display -->
+          <div id="result-display" class="result-display hidden">
+            <img id="result-image" alt="Stylized artwork">
+            <div class="result-actions">
+              <button id="compare-btn" class="secondary-btn" type="button">Hold to Compare</button>
+              <a id="download-btn" class="secondary-btn primary-tint" download="deepart_stylized.jpg">Download Image</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <p>Made with Love by Rajdip ❤️❤️</p>
+    </footer>
+
+  </div>
+
+  <script src="/static/script.js"></script>
+</body>
+
+</html>

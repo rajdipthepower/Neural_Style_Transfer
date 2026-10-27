@@ -1,0 +1,86 @@
+[
+  {
+    "id": "af_klint",
+    "name": "Af Klint",
+    "category": "abstract",
+    "thumb": "/styles/thumbs/af_klint.jpg"
+  },
+  {
+    "id": "delaunay",
+    "name": "Delaunay",
+    "category": "abstract",
+    "thumb": "/styles/thumbs/delaunay.jpg"
+  },
+  {
+    "id": "fighting_forms",
+    "name": "Fighting Forms",
+    "category": "abstract",
+    "thumb": "/styles/thumbs/fighting_forms.jpg"
+  },
+  {
+    "id": "kandinsky",
+    "name": "Kandinsky",
+    "category": "abstract",
+    "thumb": "/styles/thumbs/kandinsky.jpg"
+  },
+  {
+    "id": "kandinsky_vii",
+    "name": "Kandinsky Vii",
+    "category": "abstract",
+    "thumb": "/styles/thumbs/kandinsky_vii.jpg"
+  },
+  {
+    "id": "cezanne",
+    "name": "Cezanne",
+    "category": "landscape",
+    "thumb": "/styles/thumbs/cezanne.jpg"
+  },
+  {
+    "id": "great_wave",
+    "name": "Great Wave",
+    "category": "landscape",
+    "thumb": "/styles/thumbs/great_wave.jpg"
+  },
+  {
+    "id": "starry_night",
+    "name": "Starry Night",
+    "category": "landscape",
+    "thumb": "/styles/thumbs/starry_night.jpg"
+  },
+  {
+    "id": "the_scream",
+    "name": "The Scream",
+    "category": "landscape",
+    "thumb": "/styles/thumbs/the_scream.jpg"
+  },
+  {
+    "id": "gauguin",
+    "name": "Gauguin",
+    "category": "portrait",
+    "thumb": "/styles/thumbs/gauguin.jpg"
+  },
+  {
+    "id": "modigliani",
+    "name": "Modigliani",
+    "category": "portrait",
+    "thumb": "/styles/thumbs/modigliani.jpg"
+  },
+  {
+    "id": "renoir",
+    "name": "Renoir",
+    "category": "portrait",
+    "thumb": "/styles/thumbs/renoir.jpg"
+  },
+  {
+    "id": "water_lilies",
+    "name": "Water Lilies",
+    "category": "portrait",
+    "thumb": "/styles/thumbs/water_lilies.jpg"
+  },
+  {
+    "id": "whistler",
+    "name": "Whistler",
+    "category": "portrait",
+    "thumb": "/styles/thumbs/whistler.jpg"
+  }
+]
