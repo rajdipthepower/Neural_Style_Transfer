@@ -1,9 +1,3 @@
-"""
-DeepArt - Streamlit Application
-A modern, compact neural style transfer web app powered by AdaIN and PyTorch.
-Supports both single-style transfer and two-style mixing.
-"""
-
 import base64
 import gc
 import io
